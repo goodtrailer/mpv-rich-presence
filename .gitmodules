@@ -1,0 +1,3 @@
+[submodule "thirdparty/mpv"]
+	path = thirdparty/mpv
+	url = https://github.com/mpv-player/mpv
