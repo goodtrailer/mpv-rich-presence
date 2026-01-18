@@ -33,7 +33,7 @@ static int mpv_show(mpv_handle* ctx, const std::string& str)
 struct rich_presence_state {
     mpv_handle* mpv_client;
     std::unique_ptr<discordpp::Client> discord_client;
-    bool is_enabled = false;
+    std::optional<bool> is_enabled = std::nullopt;
 };
 
 static void handle_client_message(rich_presence_state& state, mpv_event_client_message* msg)
@@ -41,11 +41,11 @@ static void handle_client_message(rich_presence_state& state, mpv_event_client_m
     if (msg->num_args == 0)
         return;
 
-    bool is_enabled_prev = state.is_enabled;
+    auto is_enabled_prev = state.is_enabled;
 
     if (msg->args[0] == "toggle"s)
     {
-        state.is_enabled = !state.is_enabled;
+        state.is_enabled = !state.is_enabled.has_value() || !*state.is_enabled;
     }
     else if (msg->args[0] == "on"s)
     {
@@ -73,8 +73,8 @@ static void handle_client_message(rich_presence_state& state, mpv_event_client_m
         }
     }
 
-    if (state.is_enabled != is_enabled_prev)
-        mpv_show(state.mpv_client, std::format("Rich presence {}", state.is_enabled ? "enabled" : "disabled"));
+    if (is_enabled_prev.has_value() && state.is_enabled.has_value() && state.is_enabled != is_enabled_prev)
+        mpv_show(state.mpv_client, std::format("Rich presence {}", *state.is_enabled ? "enabled" : "disabled"));
 }
 
 extern "C" MPV_EXPORT
@@ -113,7 +113,7 @@ int mpv_open_cplugin(mpv_handle* ctx)
         if (state.discord_client->GetApplicationId() == 0)
             continue;
 
-        if (!state.is_enabled)
+        if (!state.is_enabled.has_value() || !*state.is_enabled)
         {
             state.discord_client->ClearRichPresence();
             continue;
