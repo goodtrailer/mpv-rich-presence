@@ -33,7 +33,13 @@ static int mpv_show(mpv_handle* ctx, const std::string& str)
 struct rich_presence_state {
     mpv_handle* mpv_client;
     std::unique_ptr<discordpp::Client> discord_client;
+
     std::optional<bool> is_enabled = std::nullopt;
+
+    bool media_has_audio = false;
+    bool media_has_video = false;
+    std::string media_artist = "";
+    std::string media_title = "";
 };
 
 static void handle_client_message(rich_presence_state& state, mpv_event_client_message* msg)
@@ -66,7 +72,7 @@ static void handle_client_message(rich_presence_state& state, mpv_event_client_m
             try {
                 int64_t application_id = std::stoll(msg->args[1]);
                 state.discord_client->SetApplicationId(application_id);
-                mpv_print(state.mpv_client, std::format("application_id: {}", application_id));
+                mpv_print(state.mpv_client, std::format("Received application_id: {}", application_id));
             } catch (const std::exception& e) {
                 mpv_print(state.mpv_client, e.what() + ": "s + msg->args[1]);
             }
@@ -80,74 +86,75 @@ static void handle_client_message(rich_presence_state& state, mpv_event_client_m
 extern "C" MPV_EXPORT
 int mpv_open_cplugin(mpv_handle* ctx)
 {
-    // Initialization
-
     auto state = rich_presence_state {};
     state.mpv_client = ctx;
 
-    mpv_print(state.mpv_client, "Initializing Discord Social SDK...");
+    // Initialization
 
-    state.discord_client = std::make_unique<discordpp::Client>();
-
-    state.discord_client->AddLogCallback([&state](auto msg, auto severity) {
-        mpv_print(state.mpv_client, std::format("[{}] {}", EnumToString(severity), msg));
-    }, discordpp::LoggingSeverity::Warning);
-
+    mpv_print(state.mpv_client, "Pinging rich_presence_conf for config data...");
     auto ping_args = std::array<const char*, 4> { "script-message-to", "rich_presence_conf", "ping", nullptr };
     mpv_command(state.mpv_client, ping_args.data());
+
+    mpv_print(state.mpv_client, "Initializing Discord Social SDK...");
+    state.discord_client = std::make_unique<discordpp::Client>();
+    state.discord_client->AddLogCallback([&state](auto msg, auto severity)
+    {
+        mpv_print(state.mpv_client, std::format("[{}] {}", EnumToString(severity), msg));
+    }, discordpp::LoggingSeverity::Warning);
 
     // Main event loop
 
     while (true)
     {
-        auto* event = mpv_wait_event(state.mpv_client, chrono::duration_cast<chrono::milliseconds>(SLEEP_DURATION).count() * 1e-3);
-        
         discordpp::RunCallbacks();
+
+        // Event handling (+ sleep)
+
+        auto* event = mpv_wait_event(state.mpv_client, chrono::duration_cast<chrono::milliseconds>(SLEEP_DURATION).count() * 1e-3);
 
         if (event->event_id == MPV_EVENT_SHUTDOWN)
             break;
         
         if (event->event_id == MPV_EVENT_CLIENT_MESSAGE)
             handle_client_message(state, (mpv_event_client_message*)event->data);
+        
+        if (event->event_id == MPV_EVENT_FILE_LOADED)
+        {
+            state.media_has_audio = false;
+            state.media_has_video = false;
+
+            int64_t media_track_count = 0;
+            mpv_get_property(state.mpv_client, "track-list/count", MPV_FORMAT_INT64, &media_track_count);
+            for (int64_t i = 0; i < media_track_count; i++) {
+                const char* media_track_type = "";
+                mpv_get_property(state.mpv_client, std::format("track-list/{}/type", i).c_str(), MPV_FORMAT_STRING, &media_track_type);
+                if (media_track_type == "audio"s)
+                    state.media_has_audio = true;
+
+                if (media_track_type == "video"s) {
+                    int is_image = false;
+                    mpv_get_property(state.mpv_client, std::format("track-list/{}/image", i).c_str(), MPV_FORMAT_FLAG, &is_image);
+                    if (!is_image)
+                        state.media_has_video = true;
+                }
+            }
+            
+            const char* media_artist = "";
+            const char* media_title = "";
+            mpv_get_property(state.mpv_client, "metadata/by-key/Artist", MPV_FORMAT_OSD_STRING, &media_artist);
+            mpv_get_property(state.mpv_client, "media-title", MPV_FORMAT_OSD_STRING, &media_title);
+            state.media_artist = media_artist == nullptr ? "" : media_artist;
+            state.media_title = media_title == nullptr ? "" : media_title;
+        }
+
+        // Rich Presence updating
 
         if (state.discord_client->GetApplicationId() == 0)
             continue;
 
-        if (!state.is_enabled.has_value() || !*state.is_enabled)
-        {
-            state.discord_client->ClearRichPresence();
-            continue;
-        }
-
-        auto activity = discordpp::Activity {};
-
-        bool has_audio = false;
-        bool has_video = false;
-        int64_t media_track_count = 0;
-        mpv_get_property(state.mpv_client, "track-list/count", MPV_FORMAT_INT64, &media_track_count);
-        for (int64_t i = 0; i < media_track_count; i++) {
-            const char* media_track_type = "";
-            mpv_get_property(state.mpv_client, std::format("track-list/{}/type", i).c_str(), MPV_FORMAT_STRING, &media_track_type);
-            if (media_track_type == "audio"s)
-                has_audio = true;
-
-            if (media_track_type == "video"s) {
-                int is_image = false;
-                mpv_get_property(state.mpv_client, std::format("track-list/{}/image", i).c_str(), MPV_FORMAT_FLAG, &is_image);
-                if (!is_image)
-                    has_video = true;
-            }
-        }
-
-        if (has_video)
-        {
-            activity.SetType(discordpp::ActivityTypes::Watching);
-        }
-        else if (has_audio)
-        {
-            activity.SetType(discordpp::ActivityTypes::Listening);
-        }
-        else
+        if (!state.is_enabled.has_value()
+            || !*state.is_enabled
+            || (!state.media_has_audio && !state.media_has_video))
         {
             state.discord_client->ClearRichPresence();
             continue;
@@ -160,21 +167,14 @@ int mpv_open_cplugin(mpv_handle* ctx)
         mpv_get_property(state.mpv_client, "time-remaining/full", MPV_FORMAT_DOUBLE, &media_time_left_s);
         mpv_get_property(state.mpv_client, "pause", MPV_FORMAT_FLAG, &is_media_paused);
 
-        const char* media_artist = "";
-        const char* media_title = "";
-        mpv_get_property(state.mpv_client, "metadata/by-key/Artist", MPV_FORMAT_OSD_STRING, &media_artist);
-        mpv_get_property(state.mpv_client, "media-title", MPV_FORMAT_OSD_STRING, &media_title);
-
-        activity.SetName(media_artist != "" ? std::format("{} - {}", media_artist, media_title) : media_title);
+        auto activity = discordpp::Activity {};
+        activity.SetType(state.media_has_video ? discordpp::ActivityTypes::Watching : discordpp::ActivityTypes::Listening);
+        activity.SetName(state.media_artist != "" ? std::format("{} - {}", state.media_artist, state.media_title) : state.media_title);
         activity.SetState(is_media_paused ? std::make_optional("Paused") : std::nullopt);
 
-        auto assets = discordpp::ActivityAssets {};
-        assets.SetLargeImage(std::nullopt);
-        activity.SetAssets(assets);
-
         if (!is_media_paused) {
-            uint64_t now_ms = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
             auto timestamps = discordpp::ActivityTimestamps {};
+            uint64_t now_ms = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
             timestamps.SetStart(now_ms - media_time_pos_s * 1000);
             timestamps.SetEnd(now_ms + media_time_left_s * 1000);
             activity.SetTimestamps(timestamps);
