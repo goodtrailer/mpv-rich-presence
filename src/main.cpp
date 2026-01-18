@@ -26,7 +26,8 @@ static int mpv_show(mpv_handle* ctx, const std::string& str)
     return mpv_command(ctx, args.data());
 }
 
-struct rich_presence_state {
+struct rich_presence_state
+{
     mpv_handle* mpv_client;
     std::unique_ptr<discordpp::Client> discord_client;
 
@@ -65,11 +66,14 @@ static void handle_client_message(rich_presence_state& state, mpv_event_client_m
         }
         else
         {
-            try {
+            try
+            {
                 int64_t application_id = std::stoll(msg->args[1]);
                 state.discord_client->SetApplicationId(application_id);
                 mpv_print(state.mpv_client, std::format("Received application_id: {}", application_id));
-            } catch (const std::exception& e) {
+            }
+            catch (const std::exception& e)
+            {
                 mpv_print(state.mpv_client, e.what() + ": "s + msg->args[1]);
             }
         }
@@ -86,13 +90,15 @@ static void handle_file_loaded(rich_presence_state& state)
 
     int64_t media_track_count = 0;
     mpv_get_property(state.mpv_client, "track-list/count", MPV_FORMAT_INT64, &media_track_count);
-    for (int64_t i = 0; i < media_track_count; i++) {
+    for (int64_t i = 0; i < media_track_count; i++)
+    {
         const char* media_track_type = "";
         mpv_get_property(state.mpv_client, std::format("track-list/{}/type", i).c_str(), MPV_FORMAT_STRING, &media_track_type);
         if (media_track_type == "audio"s)
             state.media_has_audio = true;
 
-        if (media_track_type == "video"s) {
+        if (media_track_type == "video"s)
+        {
             int is_image = false;
             mpv_get_property(state.mpv_client, std::format("track-list/{}/image", i).c_str(), MPV_FORMAT_FLAG, &is_image);
             if (!is_image)
@@ -169,7 +175,8 @@ int mpv_open_cplugin(mpv_handle* ctx)
         activity.SetName(state.media_artist != "" ? std::format("{} - {}", state.media_artist, state.media_title) : state.media_title);
         activity.SetState(is_media_paused ? std::make_optional("Paused") : std::nullopt);
 
-        if (!is_media_paused) {
+        if (!is_media_paused)
+        {
             auto timestamps = discordpp::ActivityTimestamps {};
             uint64_t now_ms = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
             timestamps.SetStart(now_ms - media_time_pos_s * 1000);
