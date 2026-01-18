@@ -93,8 +93,8 @@ int mpv_open_cplugin(mpv_handle* ctx)
         mpv_print(state.mpv_client, std::format("[{}] {}", EnumToString(severity), msg));
     }, discordpp::LoggingSeverity::Warning);
 
-    int is_ready = true;
-    mpv_set_property(state.mpv_client, "rich_presence_ready", MPV_FORMAT_FLAG, &is_ready);
+    auto ping_args = std::array<const char*, 4> { "script-message-to", "rich_presence_conf", "ping", nullptr };
+    mpv_command(state.mpv_client, ping_args.data());
 
     // Main event loop
 

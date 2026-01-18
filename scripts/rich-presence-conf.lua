@@ -6,10 +6,16 @@ local options = {
     on = false,
 }
 mp_options.read_options(options, "rich-presence")
-mp.commandv("script-message-to", "rich_presence", "application_id", options.application_id)
 
-if options.on then
-    mp.commandv("script-message-to", "rich_presence", "on")
-else
-    mp.commandv("script-message-to", "rich_presence", "off")
+function pong()
+    mp.commandv("script-message-to", "rich_presence", "application_id", options.application_id)
+
+    if options.on then
+        mp.commandv("script-message-to", "rich_presence", "on")
+    else
+        mp.commandv("script-message-to", "rich_presence", "off")
+    end
 end
+
+mp.register_script_message("ping", pong)
+pong()
