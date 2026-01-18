@@ -79,6 +79,35 @@ static void handle_client_message(rich_presence_state& state, mpv_event_client_m
         mpv_show(state.mpv_client, std::format("Rich presence {}", *state.is_enabled ? "enabled" : "disabled"));
 }
 
+static void handle_file_loaded(rich_presence_state& state)
+{
+    state.media_has_audio = false;
+    state.media_has_video = false;
+
+    int64_t media_track_count = 0;
+    mpv_get_property(state.mpv_client, "track-list/count", MPV_FORMAT_INT64, &media_track_count);
+    for (int64_t i = 0; i < media_track_count; i++) {
+        const char* media_track_type = "";
+        mpv_get_property(state.mpv_client, std::format("track-list/{}/type", i).c_str(), MPV_FORMAT_STRING, &media_track_type);
+        if (media_track_type == "audio"s)
+            state.media_has_audio = true;
+
+        if (media_track_type == "video"s) {
+            int is_image = false;
+            mpv_get_property(state.mpv_client, std::format("track-list/{}/image", i).c_str(), MPV_FORMAT_FLAG, &is_image);
+            if (!is_image)
+                state.media_has_video = true;
+        }
+    }
+
+    const char* media_artist = "";
+    const char* media_title = "";
+    mpv_get_property(state.mpv_client, "metadata/by-key/Artist", MPV_FORMAT_OSD_STRING, &media_artist);
+    mpv_get_property(state.mpv_client, "media-title", MPV_FORMAT_OSD_STRING, &media_title);
+    state.media_artist = media_artist == nullptr ? "" : media_artist;
+    state.media_title = media_title == nullptr ? "" : media_title;
+}
+
 extern "C" MPV_EXPORT
 int mpv_open_cplugin(mpv_handle* ctx)
 {
@@ -110,38 +139,10 @@ int mpv_open_cplugin(mpv_handle* ctx)
 
         if (event->event_id == MPV_EVENT_SHUTDOWN)
             break;
-        
-        if (event->event_id == MPV_EVENT_CLIENT_MESSAGE)
+        else if (event->event_id == MPV_EVENT_CLIENT_MESSAGE)
             handle_client_message(state, (mpv_event_client_message*)event->data);
-        
-        if (event->event_id == MPV_EVENT_FILE_LOADED)
-        {
-            state.media_has_audio = false;
-            state.media_has_video = false;
-
-            int64_t media_track_count = 0;
-            mpv_get_property(state.mpv_client, "track-list/count", MPV_FORMAT_INT64, &media_track_count);
-            for (int64_t i = 0; i < media_track_count; i++) {
-                const char* media_track_type = "";
-                mpv_get_property(state.mpv_client, std::format("track-list/{}/type", i).c_str(), MPV_FORMAT_STRING, &media_track_type);
-                if (media_track_type == "audio"s)
-                    state.media_has_audio = true;
-
-                if (media_track_type == "video"s) {
-                    int is_image = false;
-                    mpv_get_property(state.mpv_client, std::format("track-list/{}/image", i).c_str(), MPV_FORMAT_FLAG, &is_image);
-                    if (!is_image)
-                        state.media_has_video = true;
-                }
-            }
-            
-            const char* media_artist = "";
-            const char* media_title = "";
-            mpv_get_property(state.mpv_client, "metadata/by-key/Artist", MPV_FORMAT_OSD_STRING, &media_artist);
-            mpv_get_property(state.mpv_client, "media-title", MPV_FORMAT_OSD_STRING, &media_title);
-            state.media_artist = media_artist == nullptr ? "" : media_artist;
-            state.media_title = media_title == nullptr ? "" : media_title;
-        }
+        else if (event->event_id == MPV_EVENT_FILE_LOADED)
+            handle_file_loaded(state);
 
         // Rich Presence updating
 
