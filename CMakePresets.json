@@ -1,0 +1,14 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "default",
+      "binaryDir": "${sourceDir}/build",
+      "installDir": "${sourceDir}/install",
+      "toolchainFile": "${sourceDir}/thirdparty/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "DISCORD_SOCIAL_SDK_DIR": "${sourceDir}/thirdparty/discord_social_sdk"
+      }
+    }
+  ]
+}

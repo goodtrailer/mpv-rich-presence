@@ -6,6 +6,8 @@ project(mpv-rich-presence
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
+find_package(Boost CONFIG REQUIRED COMPONENTS dll)
+
 add_library(mpv-rich-presence SHARED)
 
 set(DISCORD_SOCIAL_SDK_DIR "" CACHE FILEPATH "path to Discord Social SDK root dir")
@@ -76,7 +78,8 @@ else()
 endif()
 
 target_link_libraries(mpv-rich-presence PRIVATE
-    "${DISCORD_LIB}")
+    "${DISCORD_LIB}"
+    Boost::dll)
 
 if(WIN32)
     target_compile_definitions(mpv-rich-presence PRIVATE MPV_CPLUGIN_DYNAMIC_SYM)

@@ -14,3 +14,7 @@ with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 ---
 
 mpv-rich-presence uses mpv - see licenses\LICENSE-mpv for full license text.
+
+mpv-rich-presence uses Boost - see licenses\LICENSE-boost for full license text.
+
+mpv-rich-presence uses vcpkg - see licenses\LICENSE-vcpkg for full license text.
