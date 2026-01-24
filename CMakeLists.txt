@@ -4,32 +4,58 @@ project(mpv-rich-presence
     VERSION 0.0.0
     LANGUAGES CXX C)
 
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+
+add_library(mpv-rich-presence SHARED)
 
 set(DISCORD_SOCIAL_SDK_DIR "" CACHE FILEPATH "path to Discord Social SDK root dir")
 if(NOT IS_DIRECTORY "${DISCORD_SOCIAL_SDK_DIR}")
     message(FATAL_ERROR "DISCORD_SOCIAL_SDK_DIR is not set to a directory")
 endif()
 
-add_library(mpv-rich-presence SHARED)
+set(CLANG_TIDY_FLAGS -checks=modernize-*,readability-*,-readability-braces-around-statements,-readability-identifier-length,-readability-magic-numbers,-readability-redundant-member-init,-readability-redundant-string-init)
+
 set_target_properties(mpv-rich-presence PROPERTIES
+    CXX_EXTENSIONS OFF
+    CXX_STANDARD 20
+    CXX_CLANG_TIDY "clang-tidy ${CLANG_TIDY_FLAGS}"
     OUTPUT_NAME "rich-presence"
     POSITION_INDEPENDENT_CODE ON)
+
+if (MSVC)
+    find_program(CLANG_TIDY_EXE clang-tidy)
+
+    set_target_properties(mpv-rich-presence PROPERTIES
+        VS_GLOBAL_EnableClangTidyCodeAnalysis true
+        VS_GLOBAL_ClangTidyToolExe "${CLANG_TIDY_EXE}"
+        VS_GLOBAL_ClangTidyChecks "${CLANG_TIDY_FLAGS}")
+endif()
+
+if(UNIX)
+    set_target_properties(mpv-rich-presence PROPERTIES
+        BUILD_WITH_INSTALL_RPATH TRUE
+        INSTALL_RPATH "$ORIGIN")
+
+    if(APPLE)
+        set_target_properties(mpv-rich-presence PROPERTIES
+            INSTALL_RPATH "@executable_path")
+    endif()
+endif()
 
 if(MSVC)
     set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT mpv-rich-presence)
 endif()
 
 set(mpv-rich-presence_HPP
-    )
+    rich_presence_state
+    utils)
 
 set(mpv-rich-presence_CPP
-    main)
+    mpv_rich_presence
+    utils)
 
 list(TRANSFORM mpv-rich-presence_HPP
-    PREPEND "include/")
+    PREPEND "include/mpv_rich_presence/")
 list(TRANSFORM mpv-rich-presence_HPP
     APPEND ".hpp")
 
@@ -54,16 +80,6 @@ target_link_libraries(mpv-rich-presence PRIVATE
 
 if(WIN32)
     target_compile_definitions(mpv-rich-presence PRIVATE MPV_CPLUGIN_DYNAMIC_SYM)
-endif()
-
-if(UNIX)
-    # Use RPATH when building
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-    # Set the RPATH to use the lib directory relative to the executable
-    set(CMAKE_INSTALL_RPATH "$ORIGIN")
-    if(APPLE)
-        set(CMAKE_INSTALL_RPATH "@executable_path")
-    endif()
 endif()
 
 add_custom_command(TARGET mpv-rich-presence POST_BUILD

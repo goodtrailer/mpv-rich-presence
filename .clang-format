@@ -1,0 +1,31 @@
+BasedOnStyle: WebKit
+
+AllowShortLambdasOnASingleLine: Empty
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: true
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterStruct: true
+  AfterUnion: true
+  AfterExternBlock: true
+  BeforeCatch: true
+  BeforeElse: true
+  BeforeLambdaBody: false
+  BeforeWhile: true
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyNamespace: true
+IndentPPDirectives: BeforeHash
+InsertNewlineAtEOF: true
+IntegerLiteralSeparator:
+  Binary: 4
+  Decimal: 3
+  Hex: -1
+LineEnding: LF
+NamespaceIndentation: All
+RemoveParentheses: ReturnStatement
+RemoveSemicolon: true

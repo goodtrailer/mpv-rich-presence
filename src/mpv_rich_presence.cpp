@@ -1,3 +1,19 @@
+// This file is part of mpv-rich-presence.
+// Copyright (c) 2026 Alden Wu.
+//
+// mpv-rich-presence is free software: you can redistribute it and/or modify it
+// under the terms of the GNU Affero General Public License as published by the
+// Free Software Foundation, either version 3 of the License, or (at your
+// option) any later version.
+//
+// mpv-rich-presence is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License
+// for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
+
 #define DISCORDPP_IMPLEMENTATION
 #include <discordpp.h>
 #include <mpv/client.h>
@@ -8,36 +24,14 @@
 #include <format>
 #include <string>
 
+#include "mpv_rich_presence/rich_presence_state.hpp"
+#include "mpv_rich_presence/utils.hpp"
+
 namespace chrono = std::chrono;
 using namespace std::literals;
+using namespace mpvrp;
 
 static constexpr chrono::seconds SLEEP_DURATION = chrono::seconds(1);
-
-static int mpv_print(mpv_handle* ctx, std::string_view str)
-{
-    auto full_str = std::format("[rich-presence] {}", str);
-    auto args = std::array<const char*, 3> { "print-text", full_str.c_str(), nullptr };
-    return mpv_command(ctx, args.data());
-}
-
-static int mpv_show(mpv_handle* ctx, const std::string& str)
-{
-    auto args = std::array<const char*, 3> { "show-text", str.c_str(), nullptr };
-    return mpv_command(ctx, args.data());
-}
-
-struct rich_presence_state
-{
-    mpv_handle* mpv_client;
-    std::unique_ptr<discordpp::Client> discord_client;
-
-    std::optional<bool> is_enabled = std::nullopt;
-
-    bool media_has_audio = false;
-    bool media_has_video = false;
-    std::string media_artist = "";
-    std::string media_title = "";
-};
 
 static void handle_client_message(rich_presence_state& state, mpv_event_client_message* msg)
 {
@@ -99,9 +93,9 @@ static void handle_file_loaded(rich_presence_state& state)
 
         if (media_track_type == "video"s)
         {
-            int is_image = false;
+            int is_image = 0;
             mpv_get_property(state.mpv_client, std::format("track-list/{}/image", i).c_str(), MPV_FORMAT_FLAG, &is_image);
-            if (!is_image)
+            if (is_image == 0)
                 state.media_has_video = true;
         }
     }
@@ -114,8 +108,7 @@ static void handle_file_loaded(rich_presence_state& state)
     state.media_title = media_title == nullptr ? "" : media_title;
 }
 
-extern "C" MPV_EXPORT
-int mpv_open_cplugin(mpv_handle* ctx)
+extern "C" MPV_EXPORT int mpv_open_cplugin(mpv_handle* ctx)
 {
     auto state = rich_presence_state {};
     state.mpv_client = ctx;
@@ -128,10 +121,11 @@ int mpv_open_cplugin(mpv_handle* ctx)
 
     mpv_print(state.mpv_client, "Initializing Discord Social SDK...");
     state.discord_client = std::make_unique<discordpp::Client>();
-    state.discord_client->AddLogCallback([&state](auto msg, auto severity)
-    {
-        mpv_print(state.mpv_client, std::format("[{}] {}", EnumToString(severity), msg));
-    }, discordpp::LoggingSeverity::Warning);
+    state.discord_client->AddLogCallback(
+        [&state](auto msg, auto severity) {
+            mpv_print(state.mpv_client, std::format("[{}] {}", EnumToString(severity), msg));
+        },
+        discordpp::LoggingSeverity::Warning);
 
     // Main event loop
 
@@ -145,7 +139,8 @@ int mpv_open_cplugin(mpv_handle* ctx)
 
         if (event->event_id == MPV_EVENT_SHUTDOWN)
             break;
-        else if (event->event_id == MPV_EVENT_CLIENT_MESSAGE)
+
+        if (event->event_id == MPV_EVENT_CLIENT_MESSAGE)
             handle_client_message(state, (mpv_event_client_message*)event->data);
         else if (event->event_id == MPV_EVENT_FILE_LOADED)
             handle_file_loaded(state);
@@ -165,30 +160,31 @@ int mpv_open_cplugin(mpv_handle* ctx)
 
         double media_time_pos_s = 0.0;
         double media_time_left_s = 0.0;
-        int is_media_paused = false;
+        int is_media_paused = 0;
         mpv_get_property(state.mpv_client, "time-pos/full", MPV_FORMAT_DOUBLE, &media_time_pos_s);
         mpv_get_property(state.mpv_client, "time-remaining/full", MPV_FORMAT_DOUBLE, &media_time_left_s);
         mpv_get_property(state.mpv_client, "pause", MPV_FORMAT_FLAG, &is_media_paused);
 
         auto activity = discordpp::Activity {};
         activity.SetType(state.media_has_video ? discordpp::ActivityTypes::Watching : discordpp::ActivityTypes::Listening);
-        activity.SetName(state.media_artist != "" ? std::format("{} - {}", state.media_artist, state.media_title) : state.media_title);
-        activity.SetState(is_media_paused ? std::make_optional("Paused") : std::nullopt);
+        activity.SetName(state.media_artist.empty() ? std::format("{} - {}", state.media_artist, state.media_title) : state.media_title);
+        activity.SetState(is_media_paused == 1 ? std::make_optional("Paused") : std::nullopt);
 
-        if (!is_media_paused)
+        if (is_media_paused == 0)
         {
             auto timestamps = discordpp::ActivityTimestamps {};
             uint64_t now_ms = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-            timestamps.SetStart(now_ms - media_time_pos_s * 1000);
-            timestamps.SetEnd(now_ms + media_time_left_s * 1000);
+            timestamps.SetStart(now_ms - (media_time_pos_s * 1'000));
+            timestamps.SetEnd(now_ms + (media_time_left_s * 1'000));
             activity.SetTimestamps(timestamps);
         }
 
-        state.discord_client->UpdateRichPresence(activity, [&state](discordpp::ClientResult result)
-        {
-            if (!result.Successful())
-                mpv_print(state.mpv_client, std::format("Rich presence error: {}", result.ErrorCode()));
-        });
+        state.discord_client->UpdateRichPresence(
+            activity,
+            [&state](discordpp::ClientResult result) {
+                if (!result.Successful())
+                    mpv_print(state.mpv_client, std::format("Rich presence error: {}", result.ErrorCode()));
+            });
     }
 
     // Shut down
