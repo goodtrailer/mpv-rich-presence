@@ -1,6 +1,7 @@
 # --- Personal ---
 *.zip
 thirdparty/discord_social_sdk
+install/
 
 # --- C++ .gitignore template ---
 

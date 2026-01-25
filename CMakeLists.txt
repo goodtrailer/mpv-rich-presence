@@ -1,21 +1,91 @@
 cmake_minimum_required(VERSION 3.18)
 
+# Project ----------------------------------------------------------------------
+
 project(mpv-rich-presence
     VERSION 0.0.0
     LANGUAGES CXX C)
 
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
-
-find_package(Boost CONFIG REQUIRED COMPONENTS dll)
-
 add_library(mpv-rich-presence SHARED)
+
+# Options ----------------------------------------------------------------------
+
+option(mpv-rich-presence_INSTALL "Generate target for installing mpv-rich-presence" ${PROJECT_IS_TOP_LEVEL})
+
+# Dependencies -----------------------------------------------------------------
+
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 set(DISCORD_SOCIAL_SDK_DIR "" CACHE FILEPATH "path to Discord Social SDK root dir")
 if(NOT IS_DIRECTORY "${DISCORD_SOCIAL_SDK_DIR}")
     message(FATAL_ERROR "DISCORD_SOCIAL_SDK_DIR is not set to a directory")
 endif()
+if(WIN32)
+    set(DISCORD_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/discord_partner_sdk.lib")
+    set(DISCORD_SHARED_LIB "${DISCORD_SOCIAL_SDK_DIR}/bin/release/discord_partner_sdk.dll")
+elseif(APPLE)
+    set(DISCORD_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/libdiscord_partner_sdk.dylib")
+    set(DISCORD_SHARED_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/libdiscord_partner_sdk.dylib")
+else()
+    set(DISCORD_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/libdiscord_partner_sdk.so")
+    set(DISCORD_SHARED_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/libdiscord_partner_sdk.so")
+endif()
 
-set(CLANG_TIDY_FLAGS -checks=modernize-*,readability-*,-readability-braces-around-statements,-readability-identifier-length,-readability-magic-numbers,-readability-redundant-member-init,-readability-redundant-string-init)
+find_package(Boost CONFIG REQUIRED COMPONENTS dll)
+find_package(CMakeRC CONFIG REQUIRED)
+    cmrc_add_resource_library(mpv-rich-presence_resources
+        ALIAS mpv-rich-presence::rc
+        NAMESPACE mpvrp
+        WHENCE "${DISCORD_SOCIAL_SDK_DIR}/bin/release"
+        PREFIX discord_social_sdk
+        "${DISCORD_SHARED_LIB}")
+
+target_link_libraries(mpv-rich-presence PRIVATE
+    Boost::dll
+    ${DISCORD_LIB}
+    mpv-rich-presence::rc)
+
+# Source -----------------------------------------------------------------------
+
+set(mpv-rich-presence_HPP
+    rich_presence_state
+    mpv_utils
+    discord_utils)
+
+set(mpv-rich-presence_CPP
+    mpv_rich_presence
+    mpv_utils
+    discord_utils)
+
+set(mpv-rich-presence_LUA
+    rich-presence-conf)
+
+set(mpv-rich-presence_CONF
+    rich-presence)
+
+list(TRANSFORM mpv-rich-presence_HPP
+    PREPEND "include/mpv_rich_presence/")
+list(TRANSFORM mpv-rich-presence_HPP
+    APPEND ".hpp")
+
+list(TRANSFORM mpv-rich-presence_CPP
+    PREPEND "src/")
+list(TRANSFORM mpv-rich-presence_CPP
+    APPEND ".cpp")
+
+list(TRANSFORM mpv-rich-presence_LUA
+    PREPEND "scripts/")
+list(TRANSFORM mpv-rich-presence_LUA
+    APPEND ".lua")
+
+list(TRANSFORM mpv-rich-presence_CONF
+    PREPEND "script-opts/")
+list(TRANSFORM mpv-rich-presence_CONF
+    APPEND ".conf")
+
+# Target -----------------------------------------------------------------------
+
+set(CLANG_TIDY_FLAGS -checks=modernize-*,readability-*,-readability-braces-around-statements,-readability-identifier-length,-readability-magic-numbers,-readability-redundant-member-init,-readability-redundant-string-init,-clang-diagnostic-unused-command-line-argument)
 
 set_target_properties(mpv-rich-presence PROPERTIES
     CXX_EXTENSIONS OFF
@@ -44,81 +114,43 @@ if(UNIX)
     endif()
 endif()
 
-if(MSVC)
-    set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT mpv-rich-presence)
-endif()
-
-set(mpv-rich-presence_HPP
-    rich_presence_state
-    utils)
-
-set(mpv-rich-presence_CPP
-    mpv_rich_presence
-    utils)
-
-list(TRANSFORM mpv-rich-presence_HPP
-    PREPEND "include/mpv_rich_presence/")
-list(TRANSFORM mpv-rich-presence_HPP
-    APPEND ".hpp")
-
-list(TRANSFORM mpv-rich-presence_CPP
-    PREPEND "src/")
-list(TRANSFORM mpv-rich-presence_CPP
-    APPEND ".cpp")
-
-if(WIN32)
-    set(DISCORD_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/discord_partner_sdk.lib")
-    set(DISCORD_SHARED_LIB "${DISCORD_SOCIAL_SDK_DIR}/bin/release/discord_partner_sdk.dll")
-elseif(APPLE)
-    set(DISCORD_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/libdiscord_partner_sdk.dylib")
-    set(DISCORD_SHARED_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/libdiscord_partner_sdk.dylib")
-else()
-    set(DISCORD_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/libdiscord_partner_sdk.so")
-    set(DISCORD_SHARED_LIB "${DISCORD_SOCIAL_SDK_DIR}/lib/release/libdiscord_partner_sdk.so")
-endif()
-
-target_link_libraries(mpv-rich-presence PRIVATE
-    "${DISCORD_LIB}"
-    Boost::dll)
-
 if(WIN32)
     target_compile_definitions(mpv-rich-presence PRIVATE MPV_CPLUGIN_DYNAMIC_SYM)
 endif()
 
-add_custom_command(TARGET mpv-rich-presence POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-    "${DISCORD_SHARED_LIB}"
-    $<TARGET_FILE_DIR:mpv-rich-presence>;
-)
-
-add_custom_command(TARGET mpv-rich-presence POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E make_directory
-    $<TARGET_FILE_DIR:mpv-rich-presence>/scripts/;)
-
-add_custom_command(TARGET mpv-rich-presence POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-    $<TARGET_FILE:mpv-rich-presence>
-    $<TARGET_FILE_DIR:mpv-rich-presence>/scripts/;)
-
-add_custom_command(TARGET mpv-rich-presence POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_different
-    ${CMAKE_CURRENT_SOURCE_DIR}/scripts
-    $<TARGET_FILE_DIR:mpv-rich-presence>/scripts;)
-
-add_custom_command(TARGET mpv-rich-presence POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_newer
-    ${CMAKE_CURRENT_SOURCE_DIR}/script-opts
-    $<TARGET_FILE_DIR:mpv-rich-presence>/script-opts;)
+target_sources(mpv-rich-presence PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/${mpv-rich-presence_HPP}
+    ${CMAKE_CURRENT_SOURCE_DIR}/${mpv-rich-presence_CPP})
 
 target_include_directories(mpv-rich-presence PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${DISCORD_SOCIAL_SDK_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/mpv/include")
 
-target_sources(mpv-rich-presence PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/${mpv-rich-presence_HPP}
-    ${CMAKE_CURRENT_SOURCE_DIR}/${mpv-rich-presence_CPP})
+# IDE --------------------------------------------------------------------------
 
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
     FILES ${CMAKE_CURRENT_SOURCE_DIR}/${mpv-rich-presence_HPP}
           ${CMAKE_CURRENT_SOURCE_DIR}/${mpv-rich-presence_CPP})
+
+if(MSVC)
+    set_property(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" PROPERTY VS_STARTUP_PROJECT mpv-rich-presence)
+endif()
+
+# Install ----------------------------------------------------------------------
+
+set(mpv-rich-presence_INSTALL_DIR "mpv-rich-presence")
+set(mpv-rich-presence_INSTALL_SCRIPTS "${mpv-rich-presence_INSTALL_DIR}/scripts")
+set(mpv-rich-presence_INSTALL_SCRIPT_OPTS "${mpv-rich-presence_INSTALL_DIR}/script-opts")
+
+if (mpv-rich-presence_INSTALL AND NOT CMAKE_SKIP_INSTALL_RULES)
+    install(TARGETS mpv-rich-presence
+        ARCHIVE DESTINATION "${mpv-rich-presence_INSTALL_SCRIPTS}"
+        LIBRARY DESTINATION "${mpv-rich-presence_INSTALL_SCRIPTS}")
+
+    install(FILES ${mpv-rich-presence_LUA}
+        DESTINATION "${mpv-rich-presence_INSTALL_SCRIPTS}")
+
+    install(FILES ${mpv-rich-presence_CONF}
+        DESTINATION "${mpv-rich-presence_INSTALL_SCRIPT_OPTS}")
+endif()

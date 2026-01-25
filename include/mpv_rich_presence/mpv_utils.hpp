@@ -15,25 +15,11 @@
 // along with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
 #include <mpv/client.h>
-
-#include <memory>
-#include <optional>
 #include <string>
-
-#include "mpv_rich_presence/discord_utils.hpp"
 
 namespace mpvrp
 {
-    struct rich_presence_state
-    {
-        mpv_handle* mpv;
-        std::unique_ptr<discord_client> discord;
+    auto mpv_print(mpv_handle* ctx, std::string_view str) -> int;
 
-        std::optional<bool> is_enabled = std::nullopt;
-
-        bool media_has_audio = false;
-        bool media_has_video = false;
-        std::string media_artist = "";
-        std::string media_title = "";
-    };
+    auto mpv_show(mpv_handle* ctx, const std::string& str) -> int;
 }

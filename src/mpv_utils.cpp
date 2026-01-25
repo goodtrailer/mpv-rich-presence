@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
-#include "mpv_rich_presence/utils.hpp"
+#include "mpv_rich_presence/mpv_utils.hpp"
 
 #include <array>
 #include <format>
@@ -22,14 +22,14 @@
 
 using namespace mpvrp;
 
-int mpvrp::mpv_print(mpv_handle* ctx, std::string_view str)
+auto mpvrp::mpv_print(mpv_handle* ctx, std::string_view str) -> int
 {
     auto full_str = std::format("[rich-presence] {}", str);
     auto args = std::array<const char*, 3> { "print-text", full_str.c_str(), nullptr };
     return mpv_command(ctx, args.data());
 }
 
-int mpvrp::mpv_show(mpv_handle* ctx, const std::string& str)
+auto mpvrp::mpv_show(mpv_handle* ctx, const std::string& str) -> int
 {
     auto args = std::array<const char*, 3> { "show-text", str.c_str(), nullptr };
     return mpv_command(ctx, args.data());

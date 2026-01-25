@@ -14,12 +14,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
-#include <mpv/client.h>
-#include <string>
+#include "mpv_rich_presence/discord_utils.hpp"
 
-namespace mpvrp
-{
-    int mpv_print(mpv_handle* ctx, std::string_view str);
+using namespace mpvrp;
 
-    int mpv_show(mpv_handle* ctx, const std::string& str);
-}
+void discord_client::init(Discord_Client* h) { Discord_Client_Init(h); }
+
+void discord_client::drop(Discord_Client* h) { Discord_Client_Drop(h); }
+
+void discord_activity::init(Discord_Activity* h) { Discord_Activity_Init(h); }
+
+void discord_activity::drop(Discord_Activity* h) { Discord_Activity_Drop(h); }
+
+void discord_activity_timestamps::init(Discord_ActivityTimestamps* h) { Discord_ActivityTimestamps_Init(h); }
+
+void discord_activity_timestamps::drop(Discord_ActivityTimestamps* h) { Discord_ActivityTimestamps_Drop(h); }
