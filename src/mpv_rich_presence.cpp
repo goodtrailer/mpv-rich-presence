@@ -14,13 +14,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
-#include <cdiscord.h>
+#include <boost/dll.hpp>
+#include <cmrc/cmrc.hpp>
 #include <mpv/client.h>
 
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <filesystem>
 #include <format>
+#include <fstream>
 #include <functional>
 #include <string>
 
@@ -28,12 +31,17 @@
 #include "mpv_rich_presence/rich_presence_state.hpp"
 
 namespace chrono = std::chrono;
+namespace fs = std::filesystem;
+namespace dll = boost::dll;
 using namespace std::literals;
 using namespace mpvrp;
 
-static constexpr chrono::seconds SLEEP_DURATION = chrono::seconds(1);
+static constexpr chrono::seconds SLEEP_DURATION = 1s;
+static const std::string DISCORD_SDK_DIR = "discord_social_sdk";
 
-static void handle_client_message(rich_presence_state& state, mpv_event_client_message* msg)
+CMRC_DECLARE(mpvrp);
+
+static void handle_client_message(rich_presence_state& state, int64_t& application_id, mpv_event_client_message* msg)
 {
     if (msg->num_args == 0)
         return;
@@ -62,8 +70,7 @@ static void handle_client_message(rich_presence_state& state, mpv_event_client_m
         {
             try
             {
-                int64_t application_id = std::stoll(msg->args[1]);
-                Discord_Client_SetApplicationId(&state.discord->get(), application_id);
+                application_id = std::stoll(msg->args[1]);
                 mpv_print(state.mpv, std::format("Received application_id: {}", application_id));
             }
             catch (const std::exception& e)
@@ -115,19 +122,19 @@ void on_discord_log(Discord_String msg, Discord_LoggingSeverity severity, void* 
     auto severity_str = ""s;
     switch (severity)
     {
-    case Discord_LoggingSeverity_Verbose:
+    case Discord_LoggingSeverity::Verbose:
         severity_str = "Verbose";
         break;
-    case Discord_LoggingSeverity_Info:
+    case Discord_LoggingSeverity::Info:
         severity_str = "Info";
         break;
-    case Discord_LoggingSeverity_Warning:
+    case Discord_LoggingSeverity::Warning:
         severity_str = "Warning";
         break;
-    case Discord_LoggingSeverity_Error:
+    case Discord_LoggingSeverity::Error:
         severity_str = "Error";
         break;
-    case Discord_LoggingSeverity_None:
+    case Discord_LoggingSeverity::None:
         severity_str = "None";
         break;
     default:
@@ -135,7 +142,7 @@ void on_discord_log(Discord_String msg, Discord_LoggingSeverity severity, void* 
         break;
     }
 
-    auto msg_view = std::string_view { (char*)msg.ptr, msg.size };
+    auto msg_view = std::string_view { msg.data, msg.size };
     mpv_print(state.mpv, std::format("[{}] {}", severity_str, msg_view));
 }
 
@@ -143,14 +150,14 @@ void on_discord_update_rich_presence(Discord_ClientResult* result, void* payload
 {
     auto& state = *(rich_presence_state*)payload;
 
-    if (Discord_ClientResult_Successful(result))
+    if (state.discord_api->Discord_ClientResult_Successful(result))
         return;
 
-    int32_t code = Discord_ClientResult_ErrorCode(result);
+    int32_t code = state.discord_api->Discord_ClientResult_ErrorCode(result);
     mpv_print(state.mpv, std::format("Rich presence error: {}", code));
 }
 
-extern "C" MPV_EXPORT auto mpv_open_cplugin(mpv_handle* ctx) -> int
+auto mpv_open_cplugin_impl(mpv_handle* ctx) -> int
 {
     auto state = rich_presence_state {};
     state.mpv = ctx;
@@ -161,17 +168,33 @@ extern "C" MPV_EXPORT auto mpv_open_cplugin(mpv_handle* ctx) -> int
     auto ping_args = std::array<const char*, 4> { "script-message-to", "rich_presence_conf", "ping", nullptr };
     mpv_command(state.mpv, ping_args.data());
 
-    mpv_print(state.mpv, "Initializing Discord Social SDK...");
-    state.discord = std::make_unique<discord_client>();
+    // these are to deal with synchronization issues, not really state
+    std::atomic<bool> is_ready = false;
+    int64_t application_id = 0;
 
-    Discord_Client_AddLogCallback(&state.discord->get(), on_discord_log, nullptr, &state, Discord_LoggingSeverity_Warning);
+    mpv_print(state.mpv, "Initializing Discord Social SDK...");
+    auto discord_init = std::jthread { [&state, &is_ready]() {
+        auto embedded_fs = cmrc::mpvrp::get_filesystem();
+        auto filename = (*embedded_fs.iterate_directory(DISCORD_SDK_DIR).begin()).filename();
+        auto embedded_sdk = embedded_fs.open(std::format("{}/{}", DISCORD_SDK_DIR, filename));
+        auto temp_sdk_path = fs::temp_directory_path() / filename;
+        {
+            auto temp_sdk = std::ofstream { temp_sdk_path, std::ios_base::binary };
+            temp_sdk.write(embedded_sdk.begin(), embedded_sdk.size());
+        }
+        auto sdk = dll::shared_library { fs::absolute(temp_sdk_path).string() };
+        state.discord_api = std::make_shared<discord_api>(sdk);
+
+        state.discord = std::make_unique<discord_client>(state.discord_api);
+        state.discord_api->Discord_Client_AddLogCallback(&state.discord->get(), on_discord_log, nullptr, &state, Discord_LoggingSeverity::Warning);
+
+        is_ready = true;
+    } };
 
     // Main event loop
 
     while (true)
     {
-        Discord_RunCallbacks();
-
         // Event handling (+ sleep)
 
         auto* event = mpv_wait_event(state.mpv, chrono::duration_cast<chrono::milliseconds>(SLEEP_DURATION).count() * 1e-3);
@@ -180,20 +203,28 @@ extern "C" MPV_EXPORT auto mpv_open_cplugin(mpv_handle* ctx) -> int
             break;
 
         if (event->event_id == MPV_EVENT_CLIENT_MESSAGE)
-            handle_client_message(state, (mpv_event_client_message*)event->data);
+            handle_client_message(state, application_id, (mpv_event_client_message*)event->data);
         else if (event->event_id == MPV_EVENT_FILE_LOADED)
             handle_file_loaded(state);
 
         // Rich Presence updating
 
-        if (Discord_Client_GetApplicationId(&state.discord->get()) == 0)
+        if (!is_ready)
+            continue;
+
+        state.discord_api->Discord_RunCallbacks();
+
+        if (state.discord_api->Discord_Client_GetApplicationId(&state.discord->get()) != application_id)
+            state.discord_api->Discord_Client_SetApplicationId(&state.discord->get(), application_id);
+
+        if (application_id == 0)
             continue;
 
         if (!state.is_enabled.has_value()
             || !*state.is_enabled
             || (!state.media_has_audio && !state.media_has_video))
         {
-            Discord_Client_ClearRichPresence(&state.discord->get());
+            state.discord_api->Discord_Client_ClearRichPresence(&state.discord->get());
             continue;
         }
 
@@ -204,30 +235,44 @@ extern "C" MPV_EXPORT auto mpv_open_cplugin(mpv_handle* ctx) -> int
         mpv_get_property(state.mpv, "time-remaining/full", MPV_FORMAT_DOUBLE, &media_time_left_s);
         mpv_get_property(state.mpv, "pause", MPV_FORMAT_FLAG, &is_media_paused);
 
-        auto activity = discord_activity {};
-        auto activity_type = state.media_has_video ? Discord_ActivityTypes_Watching : Discord_ActivityTypes_Listening;
+        auto activity = discord_activity { state.discord_api };
+        auto activity_type = state.media_has_video ? Discord_ActivityTypes::Watching : Discord_ActivityTypes::Listening;
         auto activity_name = !state.media_artist.empty() ? std::format("{} - {}", state.media_artist, state.media_title) : state.media_title;
-        static auto paused_state = Discord_String { (uint8_t*)"Paused", sizeof("Paused") - 1 };
-        Discord_Activity_SetType(&activity.get(), activity_type);
-        Discord_Activity_SetName(&activity.get(), { (uint8_t*)activity_name.data(), activity_name.size() });
-        Discord_Activity_SetState(&activity.get(), is_media_paused == 1 ? &paused_state : nullptr);
+        static auto paused_state = Discord_String { "Paused", sizeof("Paused") - 1 };
+        state.discord_api->Discord_Activity_SetType(&activity.get(), activity_type);
+        state.discord_api->Discord_Activity_SetName(&activity.get(), { activity_name.data(), activity_name.size() });
+        state.discord_api->Discord_Activity_SetState(&activity.get(), is_media_paused == 1 ? &paused_state : nullptr);
 
         if (is_media_paused == 0)
         {
-            auto timestamps = discord_activity_timestamps {};
+            auto timestamps = discord_activity_timestamps { state.discord_api };
             uint64_t now_ms = chrono::duration_cast<chrono::milliseconds>(chrono::system_clock::now().time_since_epoch()).count();
-            Discord_ActivityTimestamps_SetStart(&timestamps.get(), now_ms - (media_time_pos_s * 1'000));
-            Discord_ActivityTimestamps_SetEnd(&timestamps.get(), now_ms + (media_time_left_s * 1'000));
-            Discord_Activity_SetTimestamps(&activity.get(), &timestamps.get());
+            state.discord_api->Discord_ActivityTimestamps_SetStart(&timestamps.get(), now_ms - (media_time_pos_s * 1'000));
+            state.discord_api->Discord_ActivityTimestamps_SetEnd(&timestamps.get(), now_ms + (media_time_left_s * 1'000));
+            state.discord_api->Discord_Activity_SetTimestamps(&activity.get(), &timestamps.get());
         }
 
-        Discord_Client_UpdateRichPresence(&state.discord->get(), &activity.get(), on_discord_update_rich_presence, nullptr, &state);
+        state.discord_api->Discord_Client_UpdateRichPresence(&state.discord->get(), &activity.get(), on_discord_update_rich_presence, nullptr, &state);
     }
 
     // Shut down
 
     mpv_print(state.mpv, "Shutting down...");
-    Discord_Client_ClearRichPresence(&state.discord->get());
+    if (is_ready)
+        state.discord_api->Discord_Client_ClearRichPresence(&state.discord->get());
 
     return EXIT_SUCCESS;
+}
+
+extern "C" MPV_EXPORT auto mpv_open_cplugin(mpv_handle* ctx) -> int
+{
+    try
+    {
+        return mpv_open_cplugin_impl(ctx);
+    }
+    catch (const std::exception& e)
+    {
+        mpv_print(ctx, std::format("Encountered exception: {}", e.what()));
+    }
+    return EXIT_FAILURE;
 }

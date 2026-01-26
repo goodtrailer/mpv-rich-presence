@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
+#pragma once
+
 #include <mpv/client.h>
 #include <string>
 

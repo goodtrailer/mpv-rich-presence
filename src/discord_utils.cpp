@@ -18,14 +18,14 @@
 
 using namespace mpvrp;
 
-void discord_client::init(Discord_Client* h) { Discord_Client_Init(h); }
+void discord_client::init(const discord_api& api, Discord_Client* h) { api.Discord_Client_Init(h); }
 
-void discord_client::drop(Discord_Client* h) { Discord_Client_Drop(h); }
+void discord_client::drop(const discord_api& api, Discord_Client* h) { api.Discord_Client_Drop(h); }
 
-void discord_activity::init(Discord_Activity* h) { Discord_Activity_Init(h); }
+void discord_activity::init(const discord_api& api, Discord_Activity* h) { api.Discord_Activity_Init(h); }
 
-void discord_activity::drop(Discord_Activity* h) { Discord_Activity_Drop(h); }
+void discord_activity::drop(const discord_api& api, Discord_Activity* h) { api.Discord_Activity_Drop(h); }
 
-void discord_activity_timestamps::init(Discord_ActivityTimestamps* h) { Discord_ActivityTimestamps_Init(h); }
+void discord_activity_timestamps::init(const discord_api& api, Discord_ActivityTimestamps* h) { api.Discord_ActivityTimestamps_Init(h); }
 
-void discord_activity_timestamps::drop(Discord_ActivityTimestamps* h) { Discord_ActivityTimestamps_Drop(h); }
+void discord_activity_timestamps::drop(const discord_api& api, Discord_ActivityTimestamps* h) { api.Discord_ActivityTimestamps_Drop(h); }

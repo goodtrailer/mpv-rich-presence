@@ -14,20 +14,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
+#pragma once
+
 #include <mpv/client.h>
 
 #include <memory>
 #include <optional>
 #include <string>
 
+#include "mpv_rich_presence/discord_api.hpp"
 #include "mpv_rich_presence/discord_utils.hpp"
 
 namespace mpvrp
 {
     struct rich_presence_state
     {
-        mpv_handle* mpv;
-        std::unique_ptr<discord_client> discord;
+        mpv_handle* mpv = nullptr;
+
+        std::unique_ptr<discord_client> discord = nullptr;
+        std::shared_ptr<discord_api> discord_api = nullptr;
 
         std::optional<bool> is_enabled = std::nullopt;
 

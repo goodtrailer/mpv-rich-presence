@@ -2,19 +2,7 @@
 
 ## Installation
 
-Folder structure, assuming built & installed correctly:
-* mpv config folder (e.g. `%APPDATA%/mpv`)
-    * `scripts`
-        * `rich-presence-conf.lua`
-        * `rich-presence.dll/so/dylib`
-    * `script-opts`
-        * `rich-presence.conf`
-* mpv install folder (e.g. `%LOCALAPPDATA%/Programs/mpv`)
-    * `discord_partner_sdk.dll/so/dylib`
-
-Note that Discord Social SDK needs to be downloaded separately from Discord officially (it is not OSS), and the shared library needs to be placed somewhere in the operating system's DLL/SO/DYLIB search path (e.g. next to `mpv.exe` on Windows). Also, after downloading the SDK, there is a CMake cache entry `DISCORD_SOCIAL_SDK_DIR` that needs to be configured for building.
-
-A Discord application needs to be created using the [Discord developer portal](https://discord.com/developers/applications) for this to work (Discord Social SDK requires an application ID for Rich Presence). The only field that is used by this plugin (indirectly) is the application icon. Put the application ID in `script-opts/rich-presence.conf`.
+Simply merge the contents of the distribution into your mpv config folder (e.g. `%APPDATA%/mpv` on Windows). Of course, the licenses/notices can (should) be omitted. Configure the plugin using the available options (see [§Configuration](#configuration)). By default, Rich Presence is initially off, so a `script-message-to rich_presence toggle` must be sent through the mpv console to toggle on Rich Presence.
 
 ## Configuration
 
@@ -27,3 +15,24 @@ A Discord application needs to be created using the [Discord developer portal](h
 * `on`: set Rich Presence on
 * `off`: set Rich Presence off
 * `application_id <id>`: set the ID of the Discord application from the [Discord developer portal](https://discord.com/developers/applications)
+
+> [!TIP]
+> I recommend adding in `input.conf` a binding like `D script-message-to rich_presence toggle` to easily toggle Rich Presence. Then, leave `on=no` in `rich-presence.conf`. This is so that Rich Presence is opt-in, and not everything you watch will be immediately shared.
+
+## Building
+
+> [!WARNING]
+> Ideally this plugin should be cross-platform, but I haven't tested it on anything other than MSVC. At worst, only small changes should be required to get this building on other compilers/platforms.
+
+> [!NOTE]
+> Make sure to set the CMake variable `VCPKG_TARGET_TRIPLET` to the *static* version of your platform's triplet. For example on 64-bit Windows, it should be `VCPKG_TARGET_TRIPLET=x64-windows-static`. Otherwise, the build may depend on Boost's shared libraries, which is less portable for installation as an mpv plugin.
+
+First, download the [Discord Social SDK](https://discord.com/developers/social-sdk). Unpack its contents into `thirdparty/discord_social_sdk`, such that `bin` is placed as `thirdparty/discord_social_sdk/bin`. Afterwards,
+```bash
+cmake --preset default
+# Update VCPKG_TARGET_TRIPLET here, e.g.
+# cmake -D VCPKG_TARGET_TRIPLET:STRING=x64-windows-static build
+cmake --build build
+cmake --build build --target INSTALL
+```
+If everything worked correctly, the complete distributable output should be located in `install/mpv-rich-presence`.

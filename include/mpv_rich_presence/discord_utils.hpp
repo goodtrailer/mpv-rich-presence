@@ -14,28 +14,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
-#include <cdiscord.h>
+#pragma once
 
+#include <memory>
 #include <optional>
+
+#include "mpv_rich_presence/discord_api.hpp"
 
 namespace mpvrp
 {
     template <typename Derived, typename Inner>
     concept discord_managed = requires {
         requires std::default_initializable<Inner>;
-        requires std::same_as<decltype(Derived::init(std::declval<Inner*>())), void>;
-        requires std::same_as<decltype(Derived::drop(std::declval<Inner*>())), void>;
+        requires std::same_as<decltype(Derived::init(std::declval<const discord_api&>(), std::declval<Inner*>())), void>;
+        requires std::same_as<decltype(Derived::drop(std::declval<const discord_api&>(), std::declval<Inner*>())), void>;
     };
 
     template <typename Derived, typename Inner>
     class discord_object
     {
     public:
-        discord_object()
+        discord_object(std::shared_ptr<const discord_api> api)
+            : api { std::move(api) }
         {
             static_assert(discord_managed<Derived, Inner>);
             handle = std::make_optional<Inner>();
-            Derived::init(&*handle);
+            Derived::init(*this->api, &*handle);
         }
 
         discord_object(Derived&& other) noexcept
@@ -58,7 +62,7 @@ namespace mpvrp
             if (!is_valid())
                 return;
 
-            Derived::drop(&*handle);
+            Derived::drop(*api, &*handle);
             handle = std::nullopt;
         }
 
@@ -71,26 +75,33 @@ namespace mpvrp
 
     private:
         std::optional<Inner> handle = {};
+        std::shared_ptr<const discord_api> api;
     };
 
     class discord_client : public discord_object<discord_client, Discord_Client>
     {
     public:
-        static void init(Discord_Client*);
-        static void drop(Discord_Client*);
+        using discord_object<discord_client, Discord_Client>::discord_object;
+
+        static void init(const discord_api&, Discord_Client*);
+        static void drop(const discord_api&, Discord_Client*);
     };
 
     class discord_activity : public discord_object<discord_activity, Discord_Activity>
     {
     public:
-        static void init(Discord_Activity*);
-        static void drop(Discord_Activity*);
+        using discord_object<discord_activity, Discord_Activity>::discord_object;
+
+        static void init(const discord_api&, Discord_Activity*);
+        static void drop(const discord_api&, Discord_Activity*);
     };
 
     class discord_activity_timestamps : public discord_object<discord_activity_timestamps, Discord_ActivityTimestamps>
     {
     public:
-        static void init(Discord_ActivityTimestamps*);
-        static void drop(Discord_ActivityTimestamps*);
+        using discord_object<discord_activity_timestamps, Discord_ActivityTimestamps>::discord_object;
+
+        static void init(const discord_api&, Discord_ActivityTimestamps*);
+        static void drop(const discord_api&, Discord_ActivityTimestamps*);
     };
 }

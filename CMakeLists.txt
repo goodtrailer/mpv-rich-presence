@@ -1,5 +1,10 @@
 cmake_minimum_required(VERSION 3.18)
 
+# See https://github.com/microsoft/vcpkg/issues/16049#issuecomment-1814329053
+if(VCPKG_TARGET_TRIPLET MATCHES "-static$")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 # Project ----------------------------------------------------------------------
 
 project(mpv-rich-presence
@@ -42,20 +47,21 @@ find_package(CMakeRC CONFIG REQUIRED)
 
 target_link_libraries(mpv-rich-presence PRIVATE
     Boost::dll
-    ${DISCORD_LIB}
     mpv-rich-presence::rc)
 
 # Source -----------------------------------------------------------------------
 
 set(mpv-rich-presence_HPP
-    rich_presence_state
+    discord_api
+    discord_utils
     mpv_utils
-    discord_utils)
+    rich_presence_state)
 
 set(mpv-rich-presence_CPP
+    discord_api
+    discord_utils
     mpv_rich_presence
-    mpv_utils
-    discord_utils)
+    mpv_utils)
 
 set(mpv-rich-presence_LUA
     rich-presence-conf)
@@ -124,7 +130,6 @@ target_sources(mpv-rich-presence PRIVATE
 
 target_include_directories(mpv-rich-presence PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    "${DISCORD_SOCIAL_SDK_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/mpv/include")
 
 # IDE --------------------------------------------------------------------------
@@ -145,12 +150,20 @@ set(mpv-rich-presence_INSTALL_SCRIPT_OPTS "${mpv-rich-presence_INSTALL_DIR}/scri
 
 if (mpv-rich-presence_INSTALL AND NOT CMAKE_SKIP_INSTALL_RULES)
     install(TARGETS mpv-rich-presence
-        ARCHIVE DESTINATION "${mpv-rich-presence_INSTALL_SCRIPTS}"
-        LIBRARY DESTINATION "${mpv-rich-presence_INSTALL_SCRIPTS}")
+        LIBRARY DESTINATION "${mpv-rich-presence_INSTALL_SCRIPTS}"
+        RUNTIME DESTINATION "${mpv-rich-presence_INSTALL_SCRIPTS}")
 
     install(FILES ${mpv-rich-presence_LUA}
         DESTINATION "${mpv-rich-presence_INSTALL_SCRIPTS}")
 
     install(FILES ${mpv-rich-presence_CONF}
         DESTINATION "${mpv-rich-presence_INSTALL_SCRIPT_OPTS}")
+
+    install(FILES
+            "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE"
+            "${CMAKE_CURRENT_SOURCE_DIR}/NOTICE"
+        DESTINATION "${mpv-rich-presence_INSTALL_DIR}")
+
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/licenses"
+        DESTINATION "${mpv-rich-presence_INSTALL_DIR}")
 endif()
