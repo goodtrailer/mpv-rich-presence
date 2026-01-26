@@ -7,14 +7,14 @@ Simply merge the contents of the distribution into your mpv config folder (e.g. 
 ## Configuration
 
 ### Options (`script-opts/rich-presence.conf`)
-* `application_id=<id>`: the ID of the Discord application from the [Discord developer portal](https://discord.com/developers/applications)
-* `on=<yes/no>`: initial setting of Rich Presence on/off
+* `application_id=<id>` - the ID of the Discord application from the [Discord developer portal](https://discord.com/developers/applications)
+* `on=<yes/no>` - initial setting of Rich Presence on/off
 
 ### Commands (`script-message-to rich_presence [cmd] [args]`)
-* `toggle`: toggle Rich Presence on/off
-* `on`: set Rich Presence on
-* `off`: set Rich Presence off
-* `application_id <id>`: set the ID of the Discord application from the [Discord developer portal](https://discord.com/developers/applications)
+* `toggle` - toggle Rich Presence on/off
+* `on` - set Rich Presence on
+* `off` - set Rich Presence off
+* `application_id <id>` - set the ID of the Discord application from the [Discord developer portal](https://discord.com/developers/applications)
 
 > [!TIP]
 > I recommend adding in `input.conf` a binding like `D script-message-to rich_presence toggle` to easily toggle Rich Presence. Then, leave `on=no` in `rich-presence.conf`. This is so that Rich Presence is opt-in, and not everything you watch will be immediately shared.
