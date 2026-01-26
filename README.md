@@ -35,4 +35,4 @@ cmake --preset default
 cmake --build build
 cmake --build build --target INSTALL
 ```
-If everything worked correctly, the complete distributable output should be located in `install/mpv-rich-presence`.
+If everything worked correctly, the complete binary distribution should be located in `install/mpv-rich-presence`.
