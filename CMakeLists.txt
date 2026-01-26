@@ -1,10 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
 
-# See https://github.com/microsoft/vcpkg/issues/16049#issuecomment-1814329053
-if(VCPKG_TARGET_TRIPLET MATCHES "-static$")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
-
 # Project ----------------------------------------------------------------------
 
 project(mpv-rich-presence
