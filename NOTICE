@@ -13,8 +13,8 @@ with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
 ---
 
-mpv-rich-presence uses Boost - see licenses\LICENSE-Boost for full license text.
+mpv-rich-presence uses Boost - see licenses/LICENSE-Boost for full license text.
 
-mpv-rich-presence uses CMakeRC - see licenses\LICENSE-CMakeRC for full license text.
+mpv-rich-presence uses CMakeRC - see licenses/LICENSE-CMakeRC for full license text.
 
-mpv-rich-presence uses mpv - see licenses\LICENSE-mpv for full license text.
+mpv-rich-presence uses mpv - see licenses/LICENSE-mpv for full license text.
