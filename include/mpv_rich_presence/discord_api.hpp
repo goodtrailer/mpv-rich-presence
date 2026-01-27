@@ -73,10 +73,10 @@ namespace mpvrp
     using Discord_Client_UpdateRichPresenceCallback = void(Discord_ClientResult* result, void* userData);
     using Discord_FreeFn = void(void* ptr);
 
-    class discord_api
+    class discord_api_importer
     {
     public:
-        discord_api(const boost::dll::shared_library& discord_social_sdk);
+        discord_api_importer(const boost::dll::shared_library& discord_social_sdk);
 
         void Discord_Activity_Drop(Discord_Activity* self) const;
         void Discord_Activity_Init(Discord_Activity* self) const;

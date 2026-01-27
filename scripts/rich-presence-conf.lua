@@ -24,6 +24,7 @@ local options = {
 mp_options.read_options(options, "rich-presence")
 
 function pong()
+    mp_msg.info("Ponging rich_presence with config data...")
     mp.commandv("script-message-to", "rich_presence", "application_id", options.application_id)
 
     if options.on then

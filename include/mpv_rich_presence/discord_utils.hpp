@@ -26,15 +26,15 @@ namespace mpvrp
     template <typename Derived, typename Inner>
     concept discord_managed = requires {
         requires std::default_initializable<Inner>;
-        requires std::same_as<decltype(Derived::init(std::declval<const discord_api&>(), std::declval<Inner*>())), void>;
-        requires std::same_as<decltype(Derived::drop(std::declval<const discord_api&>(), std::declval<Inner*>())), void>;
+        requires std::same_as<decltype(Derived::init(std::declval<const discord_api_importer&>(), std::declval<Inner*>())), void>;
+        requires std::same_as<decltype(Derived::drop(std::declval<const discord_api_importer&>(), std::declval<Inner*>())), void>;
     };
 
     template <typename Derived, typename Inner>
     class discord_object
     {
     public:
-        discord_object(std::shared_ptr<const discord_api> api)
+        discord_object(std::shared_ptr<const discord_api_importer> api)
             : api { std::move(api) }
         {
             static_assert(discord_managed<Derived, Inner>);
@@ -75,7 +75,7 @@ namespace mpvrp
 
     private:
         std::optional<Inner> handle = {};
-        std::shared_ptr<const discord_api> api;
+        std::shared_ptr<const discord_api_importer> api;
     };
 
     class discord_client : public discord_object<discord_client, Discord_Client>
@@ -83,8 +83,8 @@ namespace mpvrp
     public:
         using discord_object<discord_client, Discord_Client>::discord_object;
 
-        static void init(const discord_api&, Discord_Client*);
-        static void drop(const discord_api&, Discord_Client*);
+        static void init(const discord_api_importer&, Discord_Client*);
+        static void drop(const discord_api_importer&, Discord_Client*);
     };
 
     class discord_activity : public discord_object<discord_activity, Discord_Activity>
@@ -92,8 +92,8 @@ namespace mpvrp
     public:
         using discord_object<discord_activity, Discord_Activity>::discord_object;
 
-        static void init(const discord_api&, Discord_Activity*);
-        static void drop(const discord_api&, Discord_Activity*);
+        static void init(const discord_api_importer&, Discord_Activity*);
+        static void drop(const discord_api_importer&, Discord_Activity*);
     };
 
     class discord_activity_timestamps : public discord_object<discord_activity_timestamps, Discord_ActivityTimestamps>
@@ -101,7 +101,7 @@ namespace mpvrp
     public:
         using discord_object<discord_activity_timestamps, Discord_ActivityTimestamps>::discord_object;
 
-        static void init(const discord_api&, Discord_ActivityTimestamps*);
-        static void drop(const discord_api&, Discord_ActivityTimestamps*);
+        static void init(const discord_api_importer&, Discord_ActivityTimestamps*);
+        static void drop(const discord_api_importer&, Discord_ActivityTimestamps*);
     };
 }

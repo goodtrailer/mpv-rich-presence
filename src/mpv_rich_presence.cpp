@@ -26,6 +26,7 @@
 #include <fstream>
 #include <functional>
 #include <string>
+#include <thread>
 
 #include "mpv_rich_presence/mpv_utils.hpp"
 #include "mpv_rich_presence/rich_presence_state.hpp"
@@ -183,7 +184,7 @@ auto mpv_open_cplugin_impl(mpv_handle* ctx) -> int
             temp_sdk.write(embedded_sdk.begin(), embedded_sdk.size());
         }
         auto sdk = dll::shared_library { fs::absolute(temp_sdk_path).string() };
-        state.discord_api = std::make_shared<discord_api>(sdk);
+        state.discord_api = std::make_shared<discord_api_importer>(sdk);
 
         state.discord = std::make_unique<discord_client>(state.discord_api);
         state.discord_api->Discord_Client_AddLogCallback(&state.discord->get(), on_discord_log, nullptr, &state, Discord_LoggingSeverity::Warning);

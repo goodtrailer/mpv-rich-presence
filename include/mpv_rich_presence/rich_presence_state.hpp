@@ -32,7 +32,7 @@ namespace mpvrp
         mpv_handle* mpv = nullptr;
 
         std::unique_ptr<discord_client> discord = nullptr;
-        std::shared_ptr<discord_api> discord_api = nullptr;
+        std::shared_ptr<discord_api_importer> discord_api = nullptr;
 
         std::optional<bool> is_enabled = std::nullopt;
 

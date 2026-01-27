@@ -24,7 +24,7 @@ using namespace mpvrp;
 
 auto mpvrp::mpv_print(mpv_handle* ctx, std::string_view str) -> int
 {
-    auto full_str = std::format("[rich-presence] {}", str);
+    auto full_str = std::format("[{}] {}", mpv_client_name(ctx), str);
     auto args = std::array<const char*, 3> { "print-text", full_str.c_str(), nullptr };
     return mpv_command(ctx, args.data());
 }
