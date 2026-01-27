@@ -25,7 +25,13 @@ Simply merge the contents of the distribution into your mpv config folder (e.g. 
 
 ## Building
 ### Setup
-First, download the [Discord Social SDK](https://discord.com/developers/social-sdk). Unpack its contents into `thirdparty/discord_social_sdk`, such that `bin` is placed as `thirdparty/discord_social_sdk/bin`. Afterwards, set up vcpkg with one of the following (depending on your platform):
+
+First, clone the repository *including submodules*:
+```bash
+git clone --recursive https://github.com/goodtrailer/mpv-rich-presence
+```
+
+Download the [Discord Social SDK](https://discord.com/developers/social-sdk). Unpack its contents into `thirdparty/discord_social_sdk`, such that `bin` is placed as `thirdparty/discord_social_sdk/bin`. Afterwards, set up vcpkg with one of the following (depending on your platform):
 ```batch
 .\thirdparty\vcpkg\bootstrap-vcpkg.bat
 ```
