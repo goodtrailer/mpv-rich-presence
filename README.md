@@ -1,8 +1,14 @@
 # mpv-rich-presence
 
-Windows/Linux mpv plugin for Discord Rich Presence (that doesn't suck), using the Discord Social SDK. Yes, the Discord Social SDK is a bit overkill, but the legacy official [discord-rpc](https://github.com/discord/discord-rpc) library doesn't seem to support overriding the application name, which is used here to display the current media being played.
+[![Version](https://img.shields.io/github/v/release/goodtrailer/mpv-rich-presence.svg?color=green&style=flat-square)](https://github.com/goodtrailer/mpv-rich-presence/releases/latest)
+[![CodeFactor](https://www.codefactor.io/repository/github/goodtrailer/mpv-rich-presence/badge/main?style=flat-square)](https://www.codefactor.io/repository/github/goodtrailer/mpv-rich-presence/overview/main)
+[![License](https://img.shields.io/github/license/goodtrailer/mpv-rich-presence.svg?color=blue&style=flat-square)](https://github.com/goodtrailer/mpv-rich-presence/blob/master/LICENSE)
+[![Downloads](https://img.shields.io/github/downloads/goodtrailer/mpv-rich-presence/total.svg?color=orange&style=flat-square)](https://somsubhra.github.io/github-release-stats/?username=goodtrailer&repository=mpv-rich-presence&page=1&per_page=0)
 
-![](assets/preview.png)
+
+Windows/Linux mpv plugin for Discord Rich Presence (that doesn't suck), using the Discord Social SDK. Yes, the Discord Social SDK is a bit overkill, but the legacy [discord-rpc](https://github.com/discord/discord-rpc) library doesn't seem to support overriding the application name, which is used here to display the current media being played.
+
+<p align="center"><img src="assets/preview.png" alt="preview image" width="725"></p>
 
 ## Installation
 
