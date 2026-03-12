@@ -11,6 +11,9 @@ details.
 You should have received a copy of the GNU Affero General Public License along
 with mpv-rich-presence. If not, see <https://www.gnu.org/licenses/>.
 
+To build this software, the corresponding source code can be found at
+<https://github.com/goodtrailer/mpv-rich-presence>.
+
 ---
 
 mpv-rich-presence uses Boost - see licenses/LICENSE-Boost for full license text.
